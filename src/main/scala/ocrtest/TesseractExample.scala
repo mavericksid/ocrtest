@@ -3,6 +3,28 @@ package ocrtest
 import java.io.File
 import net.sourceforge.tess4j._
 import scala.util.Try
+import org.im4java.core.IMOperation
+import org.im4java.core.GMOperation
+import org.im4java.core.ConvertCmd
+
+object PreProcessImage extends App {
+
+  // create command
+  val cmd = new ConvertCmd
+
+  // create the operation
+  val op = new IMOperation
+  op.addImage("src/main/resources/sample.jpg")
+  op.units("PixelsPerInch").density(300)
+  op.colorspace("gray")
+  op.p_dither
+  op.colors(2)
+  op.normalize
+  op.addImage("src/main/resources/out.jpg")
+
+  // execute the operation
+  cmd.run(op)
+}
 
 object TesseractExample extends App {
 
