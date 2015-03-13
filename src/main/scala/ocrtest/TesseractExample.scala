@@ -1,75 +1,74 @@
 package ocrtest
 
 import java.io.File
-import net.sourceforge.tess4j._
-import scala.util.Try
-import org.im4java.core.IMOperation
-import org.im4java.core.GMOperation
-import org.im4java.core.ConvertCmd
+import scala.concurrent.duration.DurationInt
+import org.slf4j.LoggerFactory
+import akka.actor.ActorSystem
+import akka.actor.Props
+import akka.pattern.ask
+import akka.routing.RoundRobinPool
+import akka.util.Timeout
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.util.Failure
+import scala.util.Success
 
 object OcrTest extends App {
 
-  // pre-processes the image using ImageMagick
-  (new ImagePrePocessor).preProcessImage
+  implicit val timeout = Timeout(20 seconds)
 
-  // Reads pre-processed image using tesseract
-  val result = (new OcrEngine).readTextFromImage
+  val logger = LoggerFactory.getLogger(this.getClass)
 
-  println("Result of OCR is:\n\n" + result)
+  // ActorSystem to handle OCR Conversions
+  val ocrEngine = ActorSystem("OcrEngine")
+  logger.info("OCR Enigne started")
 
-}
+  // image pre processing actor
+  val imagePreProcessors = ocrEngine.actorOf(RoundRobinPool(3)
+    .props(Props[ImagePrePocessor]), "ImagePreProcessor")
+  // OCR conversion actor 
+  val ocrConvertors = ocrEngine.actorOf(RoundRobinPool(3)
+    .props(Props[OcrEngine]), "OcrConvertor")
 
-/**
- * Does image pre-processing for
- * enhancing and binarizing the image
- * using ImagMagick
- */
-class ImagePrePocessor {
+  // images to be converted
+  val fileNames = for (
+    fileName <- new File("src/main/resources/")
+      .listFiles
+      .filter(_.isFile)
+      .map(_.getName)
+      .toList
+  ) yield fileName
 
-  def preProcessImage = {
-    // create command
-    val cmd = new ConvertCmd
+  val processedImagesFutures = fileNames map (imageName =>
+    (imagePreProcessors ? ConvertImage(imageName)).mapTo[String])
 
-    val grayScaleOpr = new IMOperation
-    grayScaleOpr.p_clone
-    grayScaleOpr.blur(0, 20)
+  val futureOfResults = Future.sequence(processedImagesFutures)
 
-    // create the operation
-    val op = new IMOperation
-    op.addImage("src/main/resources/sample.jpg")
-    op.units("PixelsPerInch")
-    op.density(600)
-    op.contrast
-    op.sharpen(1)
-    op.gaussianBlur(1)
-    op.unsharp(10, 4, 1, 0)
-    op.colorspace("gray")
-    op.addSubOperation(grayScaleOpr)
-    op.compose("Divide_Src")
-    op.composite
-    op.unsharp(10, 4, 1, 0)
-    op.enhance.enhance.enhance.enhance.enhance
-    op.addImage("src/main/resources/out.jpg")
+  futureOfResults onComplete {
+    case Success(result) =>
+      logger.info("OCR conversion completed")
+      deleteTemporaryFiles
+      ocrEngine.shutdown
+    case Failure(ex) =>
+      logger.info("Some OCR conversion failed")
+      deleteTemporaryFiles
+      ocrEngine.shutdown
+  }
 
-    // execute the operation
-    cmd.run(op)
+  // ========================================================================
+  // Helper methods
+  // ========================================================================
+
+  def deleteTemporaryFiles: List[Boolean] = {
+    val binarizedFiles = for (
+      file <- new File("src/main/resources/tmp/")
+        .listFiles
+        .filter(_.isFile)
+        .toList
+    ) yield file
+
+    binarizedFiles map (_.delete)
   }
 }
 
-/**
- * Reads text from the pre-processed image
- * using tess4j as a wrapper around tesseract
- */
-class OcrEngine {
-
-  /**
-   * Converts the image to String
-   */
-  def readTextFromImage: Try[String] = {
-    Try {
-      val imageFile = new File("src/main/resources/out.jpg")
-      val tesseractInsatnce = Tesseract.getInstance
-      tesseractInsatnce.doOCR(imageFile)
-    }
-  }
-}
+case class ConvertImage(imageName: String)
