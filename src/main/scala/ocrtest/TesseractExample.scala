@@ -12,26 +12,38 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
+import akka.actor.ActorRef
+import scala.concurrent.Await
+import scala.util.Try
 
 object OcrTest extends App {
 
-  implicit val timeout = Timeout(20 seconds)
+  private implicit val operationTimeout = Timeout(10 seconds)
+  private val actorCreationTimeout = (Timeout(1 seconds)).duration
 
-  val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private val availableProcessors = Runtime.getRuntime.availableProcessors
 
   // ActorSystem to handle OCR Conversions
   val ocrEngine = ActorSystem("OcrEngine")
   logger.info("OCR Enigne started")
 
+  // OCR Engine Supervisor
+  private val ocrEngineSupervisor = ocrEngine.actorOf(Props[OcrEngineSupervisor],
+    "OcrEngineSupervisor")
+
   // image pre processing actor
-  val imagePreProcessors = ocrEngine.actorOf(RoundRobinPool(3)
-    .props(Props[ImagePrePocessor]), "ImagePreProcessor")
+  val imagePreProcessors = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / 2)
+    .props(Props[ImagePrePocessor]), "ImagePreProcessor")).mapTo[ActorRef]),
+    actorCreationTimeout)
+
   // OCR conversion actor 
-  val ocrConvertors = ocrEngine.actorOf(RoundRobinPool(3)
-    .props(Props[OcrEngine]), "OcrConvertor")
+  val ocrConvertors = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / 2)
+    .props(Props[OcrEngine]), "OcrConvertor")).mapTo[ActorRef]), actorCreationTimeout)
 
   // images to be converted
-  val fileNames = for (
+  private val fileNames = for (
     fileName <- new File("src/main/resources/")
       .listFiles
       .filter(_.isFile)
@@ -39,27 +51,15 @@ object OcrTest extends App {
       .toList
   ) yield fileName
 
-  val processedImagesFutures = fileNames map (imageName =>
-    (imagePreProcessors ? ConvertImage(imageName)).mapTo[String])
+  logger.info("Total number of images to process " + fileNames.size)
 
-  val futureOfResults = Future.sequence(processedImagesFutures)
-
-  futureOfResults onComplete {
-    case Success(result) =>
-      logger.info("OCR conversion completed")
-      deleteTemporaryFiles
-      ocrEngine.shutdown
-    case Failure(ex) =>
-      logger.info("Some OCR conversion failed")
-      deleteTemporaryFiles
-      ocrEngine.shutdown
-  }
+  fileNames map (imageName => imagePreProcessors ! ConvertImage(imageName))
 
   // ========================================================================
   // Helper methods
   // ========================================================================
 
-  def deleteTemporaryFiles: List[Boolean] = {
+  private def deleteTemporaryFiles: List[Boolean] = {
     val binarizedFiles = for (
       file <- new File("src/main/resources/tmp/")
         .listFiles
