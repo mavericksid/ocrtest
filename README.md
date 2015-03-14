@@ -1,7 +1,7 @@
 # ocrtest
 
 Project uses Akka for multi-threaded environment, <br />
-im4java as a wrapper for ImageMagick for image pre-processing, and
+im4java as a wrapper for ImageMagick for image pre-processing, and <br /> 
 tess4j as a wrapper for tesseract for OCR. <br /> 
 
 Using tesseract with tess4J: <br />

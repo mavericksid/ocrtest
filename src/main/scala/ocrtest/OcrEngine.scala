@@ -31,7 +31,7 @@ class OcrEngine extends Actor {
    */
   private def readTextFromImage(binarizedImageName: String) = {
     try {
-      logger.debug("OCR Converson for pre processed image " + binarizedImageName + " started")
+      logger.info("OCR Converson for pre processed image " + binarizedImageName + " started")
       val (name, _) = binarizedImageName splitAt (binarizedImageName lastIndexOf ".")
       val imageFile = new File("src/main/resources/tmp/" + binarizedImageName)
       val tesseractInsatnce = new Tesseract1
