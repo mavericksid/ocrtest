@@ -28,18 +28,21 @@ object ImageUtility {
   def binarizeImageOperation(imageName: String, convertedName: String): IMOperation = {
     val grayScaleOpr = new IMOperation
     grayScaleOpr.p_clone
-    grayScaleOpr.blur(0, 20)
+    grayScaleOpr.blur(0, 2)
 
     // create the operation, add images and operators/options
     val op = new IMOperation
     op.addImage("src/main/resources/" + imageName)
-    op.units("PixelsPerInch").density(600)
-    op.contrast.sharpen(1)
+    op.contrast
+    op.sharpen(1)
     op.gaussianBlur(1)
     op.unsharp(10, 4, 1, 0)
     op.colorspace("gray")
     op.addSubOperation(grayScaleOpr)
-    op.compose("Divide_Src").composite
+    op.p_swap
+    op.compose("divide")
+    op.composite
+    op.linearStretch(5, 0, true)
     op.unsharp(10, 4, 1, 0)
     op.enhance.enhance.enhance.enhance.enhance
     op.addImage("src/main/resources/tmp/" + convertedName)
