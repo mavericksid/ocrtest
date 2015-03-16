@@ -1,12 +1,10 @@
-package ocrtest
+package com.ocrtest.actors
 
 import java.io.File
 import java.io.PrintWriter
-import scala.util.Try
 import org.slf4j.LoggerFactory
+import com.ocrtest.boot.ConvertImage
 import akka.actor.Actor
-import akka.actor.actorRef2Scala
-import net.sourceforge.tess4j.Tesseract
 import net.sourceforge.tess4j.Tesseract1
 
 /**

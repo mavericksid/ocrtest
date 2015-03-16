@@ -1,20 +1,20 @@
-package ocrtest
+package com.ocrtest.boot
 
 import java.io.File
+
+import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import org.slf4j.LoggerFactory
+import com.ocrtest.actors.ImagePrePocessor
+import com.ocrtest.actors.OcrEngine
+import com.ocrtest.actors.OcrEngineSupervisor
+import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Props
+import akka.actor.actorRef2Scala
 import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.util.Timeout
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.util.Failure
-import scala.util.Success
-import akka.actor.ActorRef
-import scala.concurrent.Await
-import scala.util.Try
 
 object OcrTest extends App {
 
@@ -34,6 +34,7 @@ object OcrTest extends App {
     "OcrEngineSupervisor")
 
   // image pre processing actor
+
   val imagePreProcessors = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / 2)
     .props(Props[ImagePrePocessor]), "ImagePreProcessor")).mapTo[ActorRef]),
     actorCreationTimeout)

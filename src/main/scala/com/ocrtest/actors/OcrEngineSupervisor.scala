@@ -1,12 +1,16 @@
-package ocrtest
+package com.ocrtest.actors
 
+import scala.concurrent.duration.DurationInt
 import akka.actor.Actor
 import akka.actor.OneForOneStrategy
-import scala.concurrent.duration._
-import akka.actor.SupervisorStrategy._
-import akka.actor.OneForOneStrategy
 import akka.actor.Props
+import akka.actor.SupervisorStrategy.Resume
+import akka.actor.actorRef2Scala
 
+/**
+ * OCR Engine supervisor resumes the actor operations
+ * on any kind of exception
+ */
 class OcrEngineSupervisor extends Actor {
 
   override val supervisorStrategy =
