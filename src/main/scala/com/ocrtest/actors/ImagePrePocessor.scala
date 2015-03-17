@@ -34,21 +34,21 @@ class ImagePrePocessor extends Actor {
    *
    * @param imageName name of the image to pre process
    */
-  private def preProcessImage(imageName: String) = {
+  private def preProcessImage(imageName: String): Unit = {
     try {
       logger.info("Pre processing for image " + imageName + " started")
       val (name, extension) = imageName splitAt (imageName lastIndexOf ".")
       val convertedName = name + "_converted" + extension
 
       // binarize image
-      val grayScaleImageOprs = ImageUtility.binarizeImageOperation(imageName, convertedName)
+      val grayScaleImageOprs = ImageUtility.getBinarizeImageOperation(imageName, convertedName)
       cmd.run(grayScaleImageOprs)
 
       // deskew image
       val imageFile = new File("src/main/resources/tmp/" + convertedName)
       val bufferedImage: BufferedImage = ImageIO.read(imageFile)
       val skewAngle = ImageUtility.getSkewAngle(bufferedImage)
-      val deskewImageOperation = ImageUtility.deskewImageOperation(skewAngle, convertedName)
+      val deskewImageOperation = ImageUtility.getDeskewImageOperation(skewAngle, convertedName)
       cmd.run(deskewImageOperation)
 
       // forwards the pre processed image name to OCREngine convertor

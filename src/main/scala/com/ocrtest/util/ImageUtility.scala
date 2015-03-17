@@ -25,7 +25,7 @@ object ImageUtility {
    *
    * @return returns the operations to be done on the image
    */
-  def binarizeImageOperation(imageName: String, convertedName: String): IMOperation = {
+  def getBinarizeImageOperation(imageName: String, convertedName: String): IMOperation = {
     val grayScaleOpr = new IMOperation
     grayScaleOpr.p_clone
     grayScaleOpr.blur(0, 2)
@@ -57,7 +57,7 @@ object ImageUtility {
    *
    * @return returns the operations to deskew the image
    */
-  def deskewImageOperation(skewAngle: Double, convertedName: String): IMOperation = {
+  def getDeskewImageOperation(skewAngle: Double, convertedName: String): IMOperation = {
     val deskewOpr = new IMOperation
     deskewOpr.addImage("src/main/resources/tmp/" + convertedName)
     deskewOpr.rotate(skewAngle)
