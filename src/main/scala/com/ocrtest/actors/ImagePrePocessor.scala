@@ -1,7 +1,6 @@
 package com.ocrtest.actors
 
 import java.io.File
-
 import scala.sys.process.Process
 import org.slf4j.LoggerFactory
 import com.ocrtest.boot.OcrTest
