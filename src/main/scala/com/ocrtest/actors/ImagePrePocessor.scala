@@ -1,14 +1,13 @@
 package com.ocrtest.actors
 
-import java.awt.image.BufferedImage
 import java.io.File
-import org.im4java.core.ConvertCmd
+
+import scala.sys.process.Process
 import org.slf4j.LoggerFactory
-import com.ocrtest.boot.ConvertImage
 import com.ocrtest.boot.OcrTest
-import com.ocrtest.util.ImageUtility
+import com.ocrtest.boot.PreProcessImage
+import com.ocrtest.boot.ReadFromImage
 import akka.actor.Actor
-import javax.imageio.ImageIO
 
 /**
  * Pre processes the image in order to enhance the
@@ -20,11 +19,9 @@ import javax.imageio.ImageIO
 class ImagePrePocessor extends Actor {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  // create command
-  private val cmd = new ConvertCmd
 
   def receive: Receive = {
-    case ConvertImage(imageName) => preProcessImage(imageName)
+    case PreProcessImage(imageName) => preProcessImage(imageName)
   }
 
   /**
@@ -38,21 +35,20 @@ class ImagePrePocessor extends Actor {
     try {
       logger.info("Pre processing for image " + imageName + " started")
       val (name, extension) = imageName splitAt (imageName lastIndexOf ".")
-      val convertedName = name + "_converted" + extension
+      val strippedName = name.replaceAll("[^a-zA-Z0-9]", "")
 
-      // binarize image
-      val grayScaleImageOprs = ImageUtility.getBinarizeImageOperation(imageName, convertedName)
-      cmd.run(grayScaleImageOprs)
+      val createDir = new File(s"src/main/resources/tmp/${strippedName}").mkdir
+      val filterStrengths = (10 to 50) by 10
+      val cleanTextCommands = filterStrengths map (num =>
+        s"""sh ./textcleaner -g -e none -f $num -o 5 src/main/resources/images/$imageName""" +
+          s""" src/main/resources/tmp/${strippedName}/${name}_${num}${extension}""")
+      val processes = cleanTextCommands map (cmd => Process(cmd).run)
 
-      // deskew image
-      val imageFile = new File("src/main/resources/tmp/" + convertedName)
-      val bufferedImage: BufferedImage = ImageIO.read(imageFile)
-      val skewAngle = ImageUtility.getSkewAngle(bufferedImage)
-      val deskewImageOperation = ImageUtility.getDeskewImageOperation(skewAngle, convertedName)
-      cmd.run(deskewImageOperation)
+      // wait until all process are executed
+      processes map (cmd => cmd.exitValue)
 
       // forwards the pre processed image name to OCREngine convertor
-      OcrTest.ocrConvertors forward ConvertImage(convertedName)
+      OcrTest.ocrConvertors forward ReadFromImage(name, extension, filterStrengths)
     } catch {
       case ex: Exception =>
         logger.error("Pre processing for image " + imageName + " failed, reason " + ex)

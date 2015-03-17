@@ -1,7 +1,6 @@
 package com.ocrtest.boot
 
 import java.io.File
-
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import org.slf4j.LoggerFactory
@@ -34,7 +33,6 @@ object OcrTest extends App {
     "OcrEngineSupervisor")
 
   // image pre processing actor
-
   val imagePreProcessors = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / 2)
     .props(Props[ImagePrePocessor]), "ImagePreProcessor")).mapTo[ActorRef]),
     actorCreationTimeout)
@@ -45,7 +43,7 @@ object OcrTest extends App {
 
   // images to be converted
   private val fileNames = for (
-    fileName <- new File("src/main/resources/")
+    fileName <- new File("src/main/resources/images/")
       .listFiles
       .filter(_.isFile)
       .map(_.getName)
@@ -54,7 +52,7 @@ object OcrTest extends App {
 
   logger.info("Total number of images to process " + fileNames.size)
 
-  fileNames map (imageName => imagePreProcessors ! ConvertImage(imageName))
+  fileNames map (imageName => imagePreProcessors ! PreProcessImage(imageName))
 
   // ========================================================================
   // Helper methods
@@ -72,4 +70,5 @@ object OcrTest extends App {
   }
 }
 
-case class ConvertImage(imageName: String)
+case class PreProcessImage(imageName: String)
+case class ReadFromImage(name: String, extension: String, totalImages: Range)
