@@ -42,12 +42,11 @@ class ImagePrePocessor extends Actor {
         s"""sh ./textcleaner -g -e none -f $num -o 5 src/main/resources/images/$imageName""" +
           s""" src/main/resources/tmp/${strippedName}/${name}_${num}${extension}""")
       val processes = cleanTextCommands map (cmd => Process(cmd).run)
-
-      // wait until all process are executed
       processes map (cmd => cmd.exitValue)
 
       // forwards the pre processed image name to OCREngine convertor
       OcrTest.ocrConvertors forward ReadFromImage(name, extension, filterStrengths)
+
     } catch {
       case ex: Exception =>
         logger.error("Pre processing for image " + imageName + " failed, reason " + ex)

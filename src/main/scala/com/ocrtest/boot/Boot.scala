@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory
 import com.ocrtest.actors.ImagePrePocessor
 import com.ocrtest.actors.OcrEngine
 import com.ocrtest.actors.OcrEngineSupervisor
+import com.ocrtest.actors.OcrPostProcessor
+import com.ocrtest.util.FileIOUtility
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Props
@@ -38,8 +40,12 @@ object OcrTest extends App {
     actorCreationTimeout)
 
   // OCR conversion actor 
-  val ocrConvertors = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / 2)
+  val ocrConvertors = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / availableProcessors)
     .props(Props[OcrEngine]), "OcrConvertor")).mapTo[ActorRef]), actorCreationTimeout)
+
+  // OCR post processing actor 
+  val ocrPostProcessor = Await.result(((ocrEngineSupervisor ? (RoundRobinPool(availableProcessors / 2)
+    .props(Props[OcrPostProcessor]), "OcrPostProcessor")).mapTo[ActorRef]), actorCreationTimeout)
 
   // images to be converted
   private val fileNames = for (
@@ -52,7 +58,10 @@ object OcrTest extends App {
 
   logger.info("Total number of images to process " + fileNames.size)
 
-  fileNames map (imageName => imagePreProcessors ! PreProcessImage(imageName))
+  if (FileIOUtility.directoryCleanUp)
+    fileNames map (imageName => imagePreProcessors ! PreProcessImage(imageName))
+  else
+    throw new Exception("Cannot clean up old directories")
 
   // ========================================================================
   // Helper methods
@@ -72,3 +81,4 @@ object OcrTest extends App {
 
 case class PreProcessImage(imageName: String)
 case class ReadFromImage(name: String, extension: String, totalImages: Range)
+case class PostProcessOcrOutput(imageName: String, ocrOutputs: List[String])

@@ -1,9 +1,11 @@
 package com.ocrtest.actors
 
 import java.io.File
-import java.io.PrintWriter
 import org.slf4j.LoggerFactory
+import com.ocrtest.boot.OcrTest
+import com.ocrtest.boot.PostProcessOcrOutput
 import com.ocrtest.boot.ReadFromImage
+import com.ocrtest.util.FileIOUtility
 import akka.actor.Actor
 import net.sourceforge.tess4j.Tesseract1
 
@@ -13,7 +15,7 @@ import net.sourceforge.tess4j.Tesseract1
  */
 class OcrEngine extends Actor {
 
-  val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   def receive: Receive = {
     case ReadFromImage(name, extension, filterStrengths) => readTextFromImage(name, extension, filterStrengths)
@@ -27,7 +29,7 @@ class OcrEngine extends Actor {
    * @param binarizedImageName pre processed image name
    * @return returns the read text from the image
    */
-  private def readTextFromImage(name: String, extension: String, filterStrengths: Range) = {
+  private def readTextFromImage(name: String, extension: String, filterStrengths: Range): Unit = {
     try {
       logger.info("OCR Converson for pre processed image " + name + " started")
 
@@ -39,31 +41,27 @@ class OcrEngine extends Actor {
         val tesseractInsatnce = new Tesseract1
         val result = tesseractInsatnce.doOCR(imageFile)
         val convertedFile = new File(s"src/main/resources/output/${strippedName}/${name}_${filterStr}")
-        writeToFile(convertedFile)(printWriter => printWriter.println(result))
-        result
+        val filteredResult = result.replaceAll("(?m)^[\\s]*", "").trim
+        FileIOUtility.writeToFile(convertedFile)(printWriter => printWriter.println(filteredResult))
+        filteredResult
       }
 
-      results
+      val normalizedOutputs = (1 to 2) map { normalizer =>
+        val imageFile = new File(s"src/main/resources/images/${name}${extension}")
+        val originalTessConversion = new Tesseract1
+        val originalResult = originalTessConversion.doOCR(imageFile)
+
+        val convertedFile = new File(s"src/main/resources/output/${strippedName}/${name}_original_${normalizer}")
+        val filteredResult = originalResult.replaceAll("(?m)^[\\s]*", "").replaceAll("(?m)^[^a-zA-Z0-9]*", "").trim
+        FileIOUtility.writeToFile(convertedFile)(printWriter => printWriter.println(filteredResult))
+        filteredResult
+      } toList
+
+      // forwards the pre processed image name to OCREngine convertor
+      OcrTest.ocrPostProcessor forward PostProcessOcrOutput(name, (normalizedOutputs ++ results.toList))
+
     } catch {
       case ex: Exception => logger.error("OCR conversion for " + name + " failed")
     }
   }
-
-  /**
-   * Writes text read from pre processed images to new txt files
-   *
-   * @param file new file to be written
-   * @param printWriter writer for printing in the new file
-   */
-  private def writeToFile(file: File)(printWriter: PrintWriter => Unit) {
-    val printWriterInstance = new PrintWriter(file)
-    try {
-      printWriter(printWriterInstance)
-    } catch {
-      case ex: Exception => ex.printStackTrace
-    } finally {
-      printWriterInstance.close
-    }
-  }
-
 }
