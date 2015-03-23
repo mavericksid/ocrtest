@@ -39,6 +39,10 @@ class OcrEngine extends Actor {
       val results = filterStrengths.par map { filterStr =>
         val imageFile = new File(s"src/main/resources/tmp/${strippedName}/${name}_${filterStr}${extension}")
         val tesseractInsatnce = new Tesseract1
+
+        //        tesseractInsatnce.setTessVariable("tessedit_char_whitelist",
+        //          "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,()-#$:%/*~")
+
         val result = tesseractInsatnce.doOCR(imageFile)
         val convertedFile = new File(s"src/main/resources/output/${strippedName}/${name}_${filterStr}")
         val filteredResult = result.replaceAll("(?m)^[\\s]*", "").trim
@@ -46,19 +50,8 @@ class OcrEngine extends Actor {
         filteredResult
       }
 
-      val normalizedOutputs = (1 to 2) map { normalizer =>
-        val imageFile = new File(s"src/main/resources/images/${name}${extension}")
-        val originalTessConversion = new Tesseract1
-        val originalResult = originalTessConversion.doOCR(imageFile)
-
-        val convertedFile = new File(s"src/main/resources/output/${strippedName}/${name}_original_${normalizer}")
-        val filteredResult = originalResult.replaceAll("(?m)^[\\s]*", "").replaceAll("(?m)^[^a-zA-Z0-9]*", "").trim
-        FileIOUtility.writeToFile(convertedFile)(printWriter => printWriter.println(filteredResult))
-        filteredResult
-      } toList
-
       // forwards the pre processed image name to OCREngine convertor
-      OcrTest.ocrPostProcessor forward PostProcessOcrOutput(name, (normalizedOutputs ++ results.toList))
+      OcrTest.ocrPostProcessor forward PostProcessOcrOutput(name, results.toList)
 
     } catch {
       case ex: Exception => logger.error("OCR conversion for " + name + " failed")

@@ -1,30 +1,33 @@
-/*package com.ocrtest.util
+package com.ocrtest.util
 
 import java.awt.image.BufferedImage
 import com.recognition.software.jdeskew.ImageDeskew
 import org.im4java.core.IMOperation
+import java.io.File
+import org.im4java.core.ConvertCmd
 
-*//**
+/**
  * OCR Engine and Image Pre Processing Utility
- *//*
-object ImageUtility {
+ * using ImageMagick
+ */
+object ImageMagickUtility {
 
-  *//**
+  /**
    * Deskews the image
    *
    * @image image image to be deskewed
-   *//*
+   */
   def getSkewAngle(bufferedImage: BufferedImage) =
     (new ImageDeskew(bufferedImage).getSkewAngle * -1)
 
-  *//**
+  /**
    * ImageMagick operations to refine and then binarize the image
    *
    * @param imageName name of image to binarize
    * @param convertedName name of the output file to be saved
    *
    * @return returns the operations to be done on the image
-   *//*
+   */
   def getBinarizeImageOperation(imageName: String, convertedName: String): IMOperation = {
     val grayScaleOpr = new IMOperation
     grayScaleOpr.p_clone
@@ -49,14 +52,14 @@ object ImageUtility {
     op
   }
 
-  *//**
+  /**
    * ImageMagick operations to deskew the image
    *
    * @param skewAngle angle at which the image is skewed
    * @param convertedName name of the output file to be saved
    *
    * @return returns the operations to deskew the image
-   *//*
+   */
   def getDeskewImageOperation(skewAngle: Double, convertedName: String): IMOperation = {
     val deskewOpr = new IMOperation
     deskewOpr.addImage("src/main/resources/tmp/" + convertedName)
@@ -65,4 +68,3 @@ object ImageUtility {
     deskewOpr
   }
 }
-*/

@@ -14,7 +14,7 @@ class OcrPostProcessor extends Actor {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val wordList =
-    Source.fromFile("src/main/resources/wordlist/wordlist.txt").mkString
+    Source.fromFile("src/main/resources/wordlist/wordlist.txt").getLines.toVector
 
   def receive: Receive = {
     case PostProcessOcrOutput(imageName, ocrOutputs) => getCombinedOcrOutput(imageName, ocrOutputs)
@@ -65,7 +65,6 @@ class OcrPostProcessor extends Actor {
       }
       builtOutput.append("\n")
     }
-
     builtOutput.toString
   }
 
@@ -96,8 +95,64 @@ class OcrPostProcessor extends Actor {
       }
     }
 
+    refineIndexedOutput(rows, columns, indexedOcrOutput)
     indexedOcrOutput
   }
+
+  // =======================================================================================
+  /**
+   * Refines the indexed words having same frequency using the dictionary
+   * and similarity matching
+   *
+   * @param row total rows in OCR output template
+   * @param columns total columns in OCR output template
+   * @param indexedOcrOutput indexed OCR output
+   */
+  private def refineIndexedOutput(rows: Int, columns: Int,
+    indexedOcrOutput: Array[Array[Map[String, Int]]]) = {
+    for (row <- (0 to rows - 1)) {
+      for (column <- (0 to columns - 1)) {
+        val indexValue = indexedOcrOutput(row)(column)
+        val indexValues = indexValue.values.toList
+        val indexKeys = indexValue.keys.toList
+
+        val newIndexValue =
+          if (indexValues.toSet.size == 1) { // if all frequencies are same
+            val higherProbabilityWord = findHigherProbabilityWord(indexKeys)
+            if (higherProbabilityWord.isDefined) {
+              Map(higherProbabilityWord.get -> 10)
+            } else { indexedOcrOutput(row)(column) }
+          } else { indexedOcrOutput(row)(column) }
+
+        indexedOcrOutput(row)(column) = newIndexValue
+      }
+    }
+  }
+
+  /**
+   * Finds the word with higher similarity matching score if all the words
+   * at the same position in OCR outputs is equal
+   *
+   * @param indexKeys words having same frequency at a particular index
+   *
+   * @return returns the word with higher similarity matching score
+   */
+  private def findHigherProbabilityWord(indexKeys: List[String]): Option[String] = {
+    val wordProbabilities = indexKeys flatMap { word =>
+      val wordRemoved = (indexKeys diff List(word))
+      wordRemoved map { wordToCompare =>
+        (DiceSorensenMetric(1).compare(word, wordToCompare).getOrElse(0D), wordToCompare)
+      }
+    }
+    val higherProbWords = wordProbabilities filter { case (prob, word) => prob >= 0.8 }
+    val dictionaryMatch = higherProbWords find {
+      case (_, word) =>
+        wordList.contains(word.toLowerCase)
+    } map { case (_, word) => word }
+
+    dictionaryMatch
+  }
+  // =======================================================================================
 
   /**
    * Separates the OCR output into rows and columns with space
@@ -166,7 +221,7 @@ class OcrPostProcessor extends Actor {
       case (word: String, prob: Double) if prob >= probability => word
     }
 
-    val foundWords = (wordList.par map { word =>
+    val foundWords = (wordList map { word =>
       val probablity = (DiceSorensenMetric(1).compare(word, wordToCompare).getOrElse(0D))
       (word, probablity)
     }) collect (filterHighProbabilityWords)
